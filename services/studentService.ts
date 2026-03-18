@@ -31,3 +31,64 @@ export const addStudent = async (user_id: string, school_id: string, name: strin
 
     return studentData;
 }
+
+export const getStudents = async (school_id: string) => {
+    const { data, error } = await supabase
+        .from("students")
+        .select(`
+            id,
+            name,
+            user_id,
+            created_at,
+            student_records!inner(
+                id,
+                classes(
+                    id,
+                    class_name,
+                    section
+                )
+            )
+        `)
+        .eq("school_id", school_id)
+        .eq("student_records.is_current", true);
+
+    if (error) {
+        console.error(error.message);
+        return null;
+    }
+
+    console.log(data);
+
+    return data;
+}
+
+export const getClassStudents = async (class_id: string, school_id: string) => {
+    const { data, error } = await supabase
+        .from("students")
+        .select(`
+            id,
+            name,
+            user_id,
+            created_at,
+            student_records!inner(
+                id,
+                classes(
+                    class_name,
+                    section
+                )
+            )
+        `)
+        .eq("school_id", school_id)
+        .eq("student_records.class_id", class_id)
+        .eq("student_records.is_current", true);
+
+    if (error) {
+        console.error(error.message);
+        return null;
+    }
+
+    console.log(data);
+
+    return data;
+}
+
