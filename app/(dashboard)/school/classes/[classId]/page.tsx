@@ -12,14 +12,21 @@ import {
   Eye,
   Edit2,
   Trash2,
-  MoreVertical
+  BookOpen,
+  UserPlus,
+  Plus,
+  Loader2
 } from "lucide-react";
+import { toast } from "sonner";
 import { useRequireRole } from "@/hooks/useRequireRole";
 import { ROLES } from "@/constants/roles";
 import { getSchoolDetails } from "@/services/schoolService";
 import { getClassDetails } from "@/services/classService";
 import { getClassStudents } from "@/services/studentService";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getSubjects, addClassSubject, getClassSubjects, assignTeacherToClassSubject } from "@/services/subjectService";
+import { getTeachers } from "@/services/teacherService";
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +40,28 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const SchoolClassPage = () => {
   const params = useParams();
@@ -41,17 +70,24 @@ const SchoolClassPage = () => {
   const { loading, user } = useRequireRole(ROLES.SCHOOL);
   
   const [students, setStudents] = useState<any[]>([]);
+  const [classSubjects, setClassSubjects] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
+  const [schoolSubjects, setSchoolSubjects] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [school, setSchool] = useState<any>(null);
   const [classDetails, setClassDetails] = useState<any>(null);
 
-  // Parse classId (now a database ID)
+  // Dialog state
+  const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const classIdStr = typeof classId === 'string' ? classId : '';
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (user?.id) {
-        setLoadingData(true);
+  const fetchData = async () => {
+    if (user?.id) {
+      setLoadingData(true);
+      try {
         const [schoolData, details] = await Promise.all([
           getSchoolDetails(user.id),
           getClassDetails(classIdStr)
@@ -61,16 +97,73 @@ const SchoolClassPage = () => {
         setClassDetails(details);
 
         if (schoolData?.id) {
-          const studentsData = await getClassStudents(classIdStr, schoolData.id);
-          if (studentsData) {
-            setStudents(studentsData);
-          }
+          const [studentsData, subjectsData, schoolTeachers, allSubjects] = await Promise.all([
+            getClassStudents(classIdStr, schoolData.id),
+            getClassSubjects(classIdStr),
+            getTeachers(schoolData.id),
+            getSubjects(schoolData.id)
+          ]);
+
+          if (studentsData) setStudents(studentsData);
+          if (subjectsData) setClassSubjects(subjectsData);
+          if (schoolTeachers) setTeachers(schoolTeachers);
+          if (allSubjects) setSchoolSubjects(allSubjects);
         }
+      } catch (error) {
+        console.error("Error fetching data:", error);
+        toast.error("Failed to load class details");
+      } finally {
         setLoadingData(false);
       }
-    };
+    }
+  };
+
+  useEffect(() => {
     fetchData();
   }, [user, classIdStr]);
+
+  const handleAddSubjectToClass = async () => {
+    if (!selectedSubjectId || !classIdStr) return;
+
+    // Check if already assigned
+    if (classSubjects.some(cs => cs.subject_id === selectedSubjectId)) {
+      toast.error("Subject already assigned to this class");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const result = await addClassSubject(classIdStr, selectedSubjectId);
+      if (result) {
+        toast.success("Subject added to class successfully!");
+        setIsAddSubjectOpen(false);
+        setSelectedSubjectId("");
+        fetchData();
+      } else {
+        toast.error("Failed to add subject");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAssignTeacher = async (classSubjectId: string, teacherId: string) => {
+    if (!classSubjectId || !teacherId) return;
+
+    try {
+      const result = await assignTeacherToClassSubject(classSubjectId, teacherId);
+      if (result) {
+        toast.success("Teacher assigned successfully!");
+        fetchData();
+      } else {
+        toast.error("Failed to assign teacher");
+      }
+    } catch (error) {
+      toast.error("An error occurred");
+    }
+  };
 
   if (loading || loadingData) {
     return (
@@ -112,130 +205,236 @@ const SchoolClassPage = () => {
               <span className="text-3xl">👨‍🎓</span>
             </div>
             <p className="text-muted-foreground text-sm">
-              Manage and view all students enrolled in this class and section
+              Manage students, subjects, and teachers for this specific section
             </p>
           </div>
           
           <div className="flex items-center gap-2">
             <Button variant="outline" className="rounded-lg flex items-center gap-2">
               <Download className="h-4 w-4" />
-              Export List
+              Export
             </Button>
           </div>
         </div>
       </div>
 
-      {/* STATS SUMMARY */}
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="rounded-xl shadow-sm border-muted/50 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-purple-100/50 dark:bg-purple-900/10 rounded-bl-full -mr-8 -mt-8 z-0"></div>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center relative z-10">
-              <Users className="h-4 w-4 mr-2 text-purple-500" />
-              Total Enrolled
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="relative z-10">
-            <div className="text-3xl font-bold">{students.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">Students in this section</p>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="students" className="w-full">
+        <TabsList className="bg-slate-100/50 dark:bg-slate-900/50 p-1 rounded-xl h-12 mb-6">
+          <TabsTrigger value="students" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-950 data-[state=active]:shadow-sm">
+            <Users className="h-4 w-4 mr-2" />
+            Students
+          </TabsTrigger>
+          <TabsTrigger value="subjects" className="rounded-lg px-6 h-10 data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-950 data-[state=active]:shadow-sm">
+            <BookOpen className="h-4 w-4 mr-2" />
+            Subjects & Teachers
+          </TabsTrigger>
+        </TabsList>
 
-      {/* SEARCH AND FILTER */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between mt-2">
-        <div className="relative w-full md:w-96">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input 
-            placeholder="Search students..." 
-            className="pl-9 h-11 rounded-xl bg-white dark:bg-zinc-950 border-muted/60 focus:ring-purple-500/20" 
-          />
-        </div>
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          <Button variant="outline" className="rounded-xl flex-1 md:flex-none h-11 gap-2 bg-white dark:bg-zinc-950">
-            <Filter className="h-4 w-4" />
-            Filters
-          </Button>
-        </div>
-      </div>
+        <TabsContent value="students" className="space-y-6 outline-none">
+          {/* STATS SUMMARY */}
+          <div className="grid gap-6 md:grid-cols-3">
+            <Card className="rounded-xl shadow-sm border-muted/50 overflow-hidden relative">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-purple-100/50 dark:bg-purple-900/10 rounded-bl-full -mr-8 -mt-8 z-0"></div>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center relative z-10">
+                  <Users className="h-4 w-4 mr-2 text-purple-500" />
+                  Total Students
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold">{students.length}</div>
+                <p className="text-xs text-muted-foreground mt-1">Active enrollments</p>
+              </CardContent>
+            </Card>
+          </div>
 
-      {/* STUDENTS TABLE */}
-      <Card className="rounded-2xl shadow-sm border-muted/60 overflow-hidden bg-white dark:bg-zinc-950">
-        <Table>
-          <TableHeader className="bg-slate-50/50 dark:bg-slate-900/20 border-b border-muted/40 h-14">
-            <TableRow className="hover:bg-transparent border-none uppercase text-[11px] font-bold tracking-wider text-muted-foreground">
-              <TableHead className="px-6 py-4">Student Name</TableHead>
-              <TableHead className="py-4">User ID</TableHead>
-              <TableHead className="py-4">Status</TableHead>
-              <TableHead className="py-4">Joined Date</TableHead>
-              <TableHead className="px-6 py-4 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {students.length > 0 ? (
-              students.map((student, index) => {
-                const color = avatarColors[index % avatarColors.length];
-                const initials = student.name
-                  .split(' ')
-                  .map((n: string) => n[0].toUpperCase())
-                  .join('')
-                  .slice(0, 2);
+          <Card className="rounded-2xl shadow-sm border-muted/60 overflow-hidden bg-white dark:bg-zinc-950">
+            <Table>
+              <TableHeader className="bg-slate-50/50 dark:bg-slate-900/20 border-b border-muted/40 h-14">
+                <TableRow className="hover:bg-transparent border-none uppercase text-[11px] font-bold tracking-wider text-muted-foreground">
+                  <TableHead className="px-6 py-4">Student Name</TableHead>
+                  <TableHead className="py-4">User ID</TableHead>
+                  <TableHead className="py-4">Status</TableHead>
+                  <TableHead className="py-4">Joined Date</TableHead>
+                  <TableHead className="px-6 py-4 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {students.length > 0 ? (
+                  students.map((student, index) => {
+                    const color = avatarColors[index % avatarColors.length];
+                    const initials = student.name
+                      .split(' ')
+                      .map((n: string) => n[0].toUpperCase())
+                      .join('')
+                      .slice(0, 2);
 
-                return (
-                  <TableRow key={student.id} className="group hover:bg-slate-50/80 dark:hover:bg-slate-900/50 cursor-default transition-colors border-b-muted/40 h-16">
-                    <TableCell className="px-6">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 border border-muted/30">
-                          <AvatarFallback className={`${color} text-white text-xs font-semibold`}>
-                            {initials}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-semibold text-sm text-foreground">{student.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm font-mono text-muted-foreground font-medium">
-                      {student.user_id?.slice(0, 8) || "N/A"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className="font-medium text-xs rounded-full border-0 px-2.5 py-0.5 bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400"
-                      >
-                        Active
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-sm font-medium text-muted-foreground">
-                      {new Date(student.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </TableCell>
-                    <TableCell className="px-6 text-right align-middle">
-                      <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50">
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    return (
+                      <TableRow key={student.id} className="group hover:bg-slate-50/80 dark:hover:bg-slate-900/50 cursor-default transition-colors border-b-muted/40 h-16">
+                        <TableCell className="px-6">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-9 w-9 border border-muted/30">
+                              <AvatarFallback className={`${color} text-white text-xs font-semibold`}>
+                                {initials}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-semibold text-sm text-foreground">{student.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm font-mono text-muted-foreground font-medium">
+                          {student.user_id?.slice(0, 8) || "N/A"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400 border-0">
+                            Active
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm font-medium text-muted-foreground">
+                          {new Date(student.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="px-6 text-right">
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-48 text-center text-muted-foreground">
+                      No students found in this section
                     </TableCell>
                   </TableRow>
-                );
-              })
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5} className="h-48 text-center">
-                  <div className="flex flex-col items-center justify-center text-muted-foreground">
-                    <GraduationCap className="h-10 w-10 mb-2 opacity-20" />
-                    <p>No students found in this section</p>
-                  </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="subjects" className="space-y-6 outline-none">
+          <div className="flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/20 p-4 rounded-xl border border-muted/50">
+            <p className="text-sm font-medium text-muted-foreground">
+              {classSubjects.length} subjects assigned to this class
+            </p>
+            
+            <Dialog open={isAddSubjectOpen} onOpenChange={setIsAddSubjectOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Subject to Class
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Subject to Class</DialogTitle>
+                  <DialogDescription>
+                    Select a subject from the school's curriculum to add to this class.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId}>
+                    <SelectTrigger className="h-11 rounded-lg">
+                      <SelectValue placeholder="Select a subject" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {schoolSubjects.map((sub) => (
+                        <SelectItem key={sub.id} value={sub.id}>
+                          {sub.subject_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddSubjectOpen(false)}>Cancel</Button>
+                  <Button 
+                    onClick={handleAddSubjectToClass} 
+                    className="bg-purple-600 hover:bg-purple-700 text-white"
+                    disabled={!selectedSubjectId || isSubmitting}
+                  >
+                    {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Add to Class
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          <Card className="rounded-2xl shadow-sm border-muted/60 overflow-hidden bg-white dark:bg-zinc-950">
+            <Table>
+              <TableHeader className="bg-slate-50/50 dark:bg-slate-900/20 border-b border-muted/40 h-14">
+                <TableRow className="hover:bg-transparent border-none uppercase text-[11px] font-bold tracking-wider text-muted-foreground">
+                  <TableHead className="px-6 py-4">Subject</TableHead>
+                  <TableHead className="py-4">Assigned Teacher</TableHead>
+                  <TableHead className="px-6 py-4 text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {classSubjects.length > 0 ? (
+                  classSubjects.map((cs) => (
+                    <TableRow key={cs.id} className="group hover:bg-slate-50/80 dark:hover:bg-slate-900/50 border-b-muted/40 h-16">
+                      <TableCell className="px-6">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                            <BookOpen className="h-5 w-5" />
+                          </div>
+                          <span className="font-semibold text-sm text-foreground">
+                            {cs.subjects?.subject_name || "Unknown Subject"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="min-w-[200px]">
+                        <Select 
+                          value={cs.teacher_id || "none"}
+                          onValueChange={(teacherId) => {
+                            if (teacherId !== "none") {
+                              handleAssignTeacher(cs.id, teacherId);
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="w-full max-w-[200px] h-9 rounded-lg border-muted/60">
+                            <SelectValue placeholder="Assign Teacher" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">
+                              <span className="text-muted-foreground italic flex items-center gap-1.5">
+                                <UserPlus className="h-3.5 w-3.5" />
+                                Unassigned
+                              </span>
+                            </SelectItem>
+                            {teachers.map((teacher) => (
+                              <SelectItem key={teacher.id} value={teacher.id}>
+                                {teacher.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="px-6 text-right">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={3} className="h-48 text-center text-muted-foreground">
+                      No subjects assigned to this class yet
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

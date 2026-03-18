@@ -46,6 +46,11 @@ const sidebarLinks = [
     icon: Building2,
   },
   {
+    title: "Subjects",
+    href: "/school/subjects",
+    icon: FileText,
+  },
+  {
     title: "Teachers",
     href: "/school/teachers",
     icon: Users,
