@@ -16,6 +16,21 @@ import {
   TrendingUp,
   UserCheck
 } from "lucide-react";
+import { toast } from "sonner";
+import { useRequireRole } from "@/hooks/useRequireRole";
+import { ROLES } from "@/constants/roles";
+import { getSchoolDetails } from "@/services/schoolService";
+import { getClasses } from "@/services/classService";
+import { useEffect } from "react";
+import { isEmailExists, signUp } from "@/services/authService";
+import { addStudent } from "@/services/studentService";
+import { 
+  InputGroup, 
+  InputGroupInput, 
+  InputGroupAddon, 
+  InputGroupText 
+} from "@/components/ui/input-group";
+import { Spinner } from "@/components/ui/spinner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +72,73 @@ const DUMMY_STUDENTS = [
 ];
 
 export default function StudentsPage() {
+  const { loading, user } = useRequireRole(ROLES.SCHOOL);
+  const [school, setSchool] = useState<any>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isPasswordGenerated, setIsPasswordGenerated] = useState("qrwpgo3nNMPX");
+
+  const [classes, setClasses] = useState<any[]>([]);
+  const [selectedClass, setSelectedClass] = useState<string>("");
+  const [selectedSection, setSelectedSection] = useState<string>("");
+  const [availableSections, setAvailableSections] = useState<any[]>([]);
+
+  const [studentName, setStudentName] = useState("");
+  const [studentUsername, setStudentUsername] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fetchSchool = async () => {
+      if (user?.id) {
+        const data = await getSchoolDetails(user.id);
+        setSchool(data);
+        
+        // Also fetch classes
+        const classesData = await getClasses(data?.id);
+        if (classesData) {
+          const grouped = classesData.reduce((acc: any[], row: any) => {
+            let cls = acc.find(c => c.name === row.class_name);
+            if (!cls) {
+              cls = { name: row.class_name, sections: [] };
+              acc.push(cls);
+            }
+            if (row.section) {
+              cls.sections.push({ id: row.id, name: row.section });
+            }
+            return acc;
+          }, []);
+          setClasses(grouped);
+        }
+      }
+    };
+    fetchSchool();
+  }, [user]);
+
+  useEffect(() => {
+    if (selectedClass) {
+      const cls = classes.find(c => c.name === selectedClass);
+      setAvailableSections(cls?.sections || []);
+      setSelectedSection("");
+    } else {
+      setAvailableSections([]);
+      setSelectedSection("");
+    }
+  }, [selectedClass, classes]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[500px]">
+        <Spinner />
+      </div>
+    );
+  }
+
+  const handleOpenAddStudent = () => {
+    if (!school?.username) {
+      toast.error("Please set a School Username in Settings before adding students.");
+      return;
+    }
+    setIsDialogOpen(true);
+  };
 
   const generatePassword = () => {
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
@@ -66,6 +147,69 @@ export default function StudentsPage() {
       pswd += chars.charAt(Math.floor(Math.random() * chars.length));
     }
     setIsPasswordGenerated(pswd);
+  };
+
+  const handleCreateStudent = async () => {
+    if (!studentName || !studentUsername || !selectedClass || !selectedSection) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Find class record id
+      const section = availableSections.find((s) => s.name === selectedSection);
+      if (!section) {
+        toast.error("Invalid section selected");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Email formation
+      const email = `${studentUsername.toLowerCase()}@${school.username.toLowerCase()}.com`;
+
+      // Check if email already exists
+      const emailExists = await isEmailExists(email);
+      if (emailExists) {
+        toast.error("Username already exists for this school.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 1. Auth Signup
+      const { data: authData, error: authError } = await signUp(email, isPasswordGenerated);
+      if (authError) throw authError;
+      if (!authData.user) throw new Error("Authentication failed");
+
+      // 2. Create student record (this also creates user record in DB)
+      const res = await addStudent(
+        authData.user.id,
+        school.id,
+        studentName,
+        email,
+        isPasswordGenerated,
+        section.id
+      );
+
+      if (res) {
+        toast.success("Student added successfully!");
+        setIsDialogOpen(false);
+        // Reset form
+        setStudentName("");
+        setStudentUsername("");
+        setSelectedClass("");
+        setSelectedSection("");
+        generatePassword();
+      } else {
+        throw new Error("Failed to create student records");
+      }
+
+    } catch (err: any) {
+      console.error("Error creating student:", err);
+      toast.error(err.message || "An error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -83,13 +227,15 @@ export default function StudentsPage() {
           </p>
         </div>
         
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm rounded-lg flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Add Student
-            </Button>
-          </DialogTrigger>
+        <Button 
+          onClick={handleOpenAddStudent}
+          className="bg-purple-600 hover:bg-purple-700 text-white shadow-sm rounded-lg flex items-center gap-2"
+        >
+          <Plus className="h-4 w-4" />
+          Add Student
+        </Button>
+        
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle className="text-xl">Add New Student</DialogTitle>
@@ -100,25 +246,60 @@ export default function StudentsPage() {
             <div className="grid gap-4 py-4 mt-2">
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-semibold">Full Name</label>
-                <Input placeholder="Enter student's full name" />
+                <Input 
+                  placeholder="Enter student's full name" 
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                />
               </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-sm font-semibold">Class / Grade</label>
-                <Select>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="grade10a">Grade 10-A</SelectItem>
-                    <SelectItem value="grade10b">Grade 10-B</SelectItem>
-                    <SelectItem value="grade9a">Grade 9-A</SelectItem>
-                    <SelectItem value="grade11a">Grade 11-A</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold">Class</label>
+                  <Select value={selectedClass} onValueChange={setSelectedClass}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Class" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {classes.map((cls) => (
+                        <SelectItem key={cls.name} value={cls.name}>
+                          {"Class " + cls.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-semibold">Section</label>
+                  <Select 
+                    value={selectedSection} 
+                    onValueChange={setSelectedSection}
+                    disabled={!selectedClass}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Section" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableSections.map((sec) => (
+                        <SelectItem key={sec.id} value={sec.name}>
+                          {"Section " + sec.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-semibold">Username</label>
-                <Input placeholder="student.username" />
+                <InputGroup>
+                  <InputGroupInput 
+                    placeholder="student.username" 
+                    value={studentUsername}
+                    onChange={(e) => setStudentUsername(e.target.value)}
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupText>@{school?.username || "school"}.com</InputGroupText>
+                  </InputGroupAddon>
+                </InputGroup>
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-semibold">Password (Auto-generated)</label>
@@ -135,10 +316,21 @@ export default function StudentsPage() {
               </div>
             </div>
             <DialogFooter className="flex gap-2 sm:gap-0">
-              <Button type="button" variant="outline" className="w-full sm:w-auto">
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full sm:w-auto"
+                onClick={() => setIsDialogOpen(false)}
+                disabled={isSubmitting}
+              >
                 Cancel
               </Button>
-              <Button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto">
+              <Button 
+                onClick={handleCreateStudent}
+                disabled={isSubmitting}
+                className="bg-purple-600 hover:bg-purple-700 text-white w-full sm:w-auto"
+              >
+                {isSubmitting && <Spinner className="mr-2 h-4 w-4" />}
                 Create Student
               </Button>
             </DialogFooter>

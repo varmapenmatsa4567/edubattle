@@ -52,7 +52,7 @@ export default function LoginForm() {
       <h2 className="text-xl font-semibold">School Login</h2>
 
       <Input
-        placeholder="Email"
+        placeholder="Username"
         onChange={(e) => setEmail(e.target.value)}
       />
 
