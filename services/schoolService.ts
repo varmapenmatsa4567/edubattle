@@ -30,3 +30,31 @@ export const getSchoolDetails = async (userId: string) => {
 
     return data;
 }
+
+export const updateSchool = async (schoolId: string, updates: any) => {
+    const { data, error } = await supabase
+        .from("schools")
+        .update(updates)
+        .eq("id", schoolId);
+
+    if (error) {
+        console.log(error.message);
+        return null;
+    }
+
+    return "Success";
+}
+
+export const isUserNameAvailable = async (username: string) => {
+    const { data, error } = await supabase
+        .from("schools")
+        .select("*")
+        .eq("username", username)
+        .single();
+
+    if (error) {
+        return true; // No record found, so it is available
+    }
+
+    return false; // Record found, so it is NOT available
+}

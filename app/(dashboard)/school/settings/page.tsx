@@ -1,11 +1,14 @@
 "use client";
 
 import React from "react";
-import { Settings, User, Building2, Shield, Camera, Calendar, LogOut, CheckCircle2 } from "lucide-react";
+import { Settings, User, Building2, Shield, Camera, Calendar, LogOut, CheckCircle2, Loader2 } from "lucide-react";
 import { useRequireRole } from "@/hooks/useRequireRole";
 import { ROLES } from "@/constants/roles";
+import { getSchoolDetails, updateSchool, isUserNameAvailable } from "@/services/schoolService";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +22,80 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function SettingsPage() {
   const { loading, user } = useRequireRole(ROLES.SCHOOL);
   const router = useRouter();
+
+  const [school, setSchool] = useState<any>(null);
+  const [schoolName, setSchoolName] = useState("");
+  const [username, setUsername] = useState("");
+
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [isSavingUsername, setIsSavingUsername] = useState(false);
+
+  useEffect(() => {
+    const fetchSchool = async () => {
+      if (user?.id) {
+        const data = await getSchoolDetails(user.id);
+        if (data) {
+          setSchool(data);
+          setSchoolName(data.name || "");
+          setUsername(data.username || "");
+        }
+      }
+    };
+    fetchSchool();
+  }, [user]);
+
+  const handleSaveName = async () => {
+    if (!school?.id) return;
+    if (!schoolName.trim()) {
+      toast.error("School name cannot be empty");
+      return;
+    }
+
+    setIsSavingName(true);
+    const result = await updateSchool(school.id, { name: schoolName });
+    setIsSavingName(false);
+
+    if (result) {
+      toast.success("School name updated successfully");
+    } else {
+      console.log(result);
+      toast.error("Failed to update school name");
+    }
+  };
+
+  const handleSaveUsername = async () => {
+    if (!school?.id) return;
+    if (!username.trim()) {
+      toast.error("Username cannot be empty");
+      return;
+    }
+
+    // Don't check if it's the same as current
+    if (username === school.username) {
+      toast.info("Username is already set to this value");
+      return;
+    }
+
+    setIsSavingUsername(true);
+    
+    // Check availability
+    const available = await isUserNameAvailable(username);
+    if (!available) {
+      setIsSavingUsername(false);
+      toast.error("Username is already taken");
+      return;
+    }
+
+    const result = await updateSchool(school.id, { username: username });
+    setIsSavingUsername(false);
+
+    if (result) {
+      setSchool({ ...school, username });
+      toast.success("Username updated successfully");
+    } else {
+      toast.error("Failed to update username");
+    }
+  };
 
   if (loading) {
     return (
@@ -129,31 +206,42 @@ export default function SettingsPage() {
                 <CardContent className="p-6 md:p-8 space-y-8">
                   <div>
                     <h3 className="text-lg font-bold mb-4">School Information</h3>
-                    
-                    <div className="flex flex-col md:flex-row gap-6 items-start md:items-center mb-6">
-                      <div className="h-20 w-28 rounded-xl bg-slate-100 dark:bg-slate-800 shadow-sm border flex items-center justify-center overflow-hidden">
-                        <img src="https://images.unsplash.com/photo-1541339907198-e08756dedf3f?ixlib=rb-4.0.3&auto=format&fit=crop&w=300&q=80" alt="School Logo" className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex flex-col">
-                        <p className="font-semibold text-sm">School Logo</p>
-                        <Button variant="outline" className="w-fit mt-2" size="sm">
-                          Upload New Logo
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                       <div className="space-y-2.5">
                         <Label htmlFor="schoolName" className="text-sm font-semibold">School Name</Label>
-                        <Input id="schoolName" defaultValue="ABC School" className="h-11 rounded-lg" />
+                        <div className="flex gap-3">
+                          <Input 
+                            id="schoolName" 
+                            value={schoolName} 
+                            onChange={(e) => setSchoolName(e.target.value)}
+                            className="h-11 rounded-lg flex-1" 
+                          />
+                          <Button 
+                            onClick={handleSaveName}
+                            disabled={isSavingName}
+                            className="bg-purple-600 hover:bg-purple-700 text-white px-6 h-11 rounded-lg shrink-0"
+                          >
+                            {isSavingName ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                          </Button>
+                        </div>
                       </div>
                       <div className="space-y-2.5">
-                        <Label htmlFor="desc" className="text-sm font-semibold">Description</Label>
-                        <Textarea 
-                          id="desc" 
-                          defaultValue="A premier educational institution dedicated to excellence in learning and character development." 
-                          className="min-h-[100px] resize-y rounded-lg" 
-                        />
+                        <Label htmlFor="username" className="text-sm font-semibold">Username</Label>
+                        <div className="flex gap-3">
+                          <Input 
+                            id="username" 
+                            value={username} 
+                            onChange={(e) => setUsername(e.target.value)}
+                            className="h-11 rounded-lg flex-1" 
+                          />
+                          <Button 
+                            onClick={handleSaveUsername}
+                            disabled={isSavingUsername}
+                            className="bg-purple-600 hover:bg-purple-700 text-white px-6 h-11 rounded-lg shrink-0"
+                          >
+                            {isSavingUsername ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </div>
