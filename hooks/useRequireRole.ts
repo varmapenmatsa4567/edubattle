@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { getUserRole } from "@/services/userService";
 
 export const useRequireRole = (requiredRole: string) => {
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -21,10 +22,13 @@ export const useRequireRole = (requiredRole: string) => {
       const role = await getUserRole(user.id);
 
       if (role !== requiredRole) {
-        router.push(`/${role}`);
+        router.push(`/login`);
       }
+
+      setLoading(false);
     };
 
     checkAccess();
   }, []);
+  return { loading };
 };
