@@ -7,12 +7,14 @@ import { useRequireRole } from "@/hooks/useRequireRole";
 import { ROLES } from "@/constants/roles";
 import { getSchoolDetails } from "@/services/schoolService";
 import { getStudents } from "@/services/studentService";
+import { getTeachers } from "@/services/teacherService";
 import { Spinner } from "@/components/ui/spinner";
 
 const SchoolPage = () => {
   const { loading, user } = useRequireRole(ROLES.SCHOOL);
   const [school, setSchool] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -21,10 +23,13 @@ const SchoolPage = () => {
         setSchool(schoolData);
 
         if (schoolData?.id) {
-          const studentsData = await getStudents(schoolData.id);
-          if (studentsData) {
-            setStudents(studentsData);
-          }
+          const [studentsData, teachersData] = await Promise.all([
+            getStudents(schoolData.id),
+            getTeachers(schoolData.id)
+          ]);
+          
+          if (studentsData) setStudents(studentsData);
+          if (teachersData) setTeachers(teachersData);
         }
       }
     };
@@ -76,7 +81,7 @@ const SchoolPage = () => {
 						</div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">45</div>
+            <div className="text-3xl font-bold">{teachers.length}</div>
             <p className="text-xs font-medium text-emerald-500 mt-1">
               +3 new this month
             </p>
