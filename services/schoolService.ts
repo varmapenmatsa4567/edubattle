@@ -15,3 +15,18 @@ export const createSchool = async (userId: string, name: string) => {
 
     return data;
 }
+
+export const getSchoolDetails = async (userId: string) => {
+    const { data, error } = await supabase
+        .from("schools")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+
+    if (error) {
+        console.log(error.message);
+        return null;
+    }
+
+    return data;
+}
