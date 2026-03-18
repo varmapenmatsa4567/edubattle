@@ -1,11 +1,11 @@
-import React from 'react'
+import SignupForm from '@/components/auth/signup-form'
 
-const page = () => {
+const SignUpPage = () => {
   return (
-    <div>
-        SignUp Page
+    <div className="flex h-screen items-center justify-center">
+      <SignupForm />
     </div>
   )
 }
 
-export default page
+export default SignUpPage
