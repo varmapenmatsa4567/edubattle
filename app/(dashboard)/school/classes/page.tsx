@@ -18,6 +18,7 @@ import { useRequireRole } from "@/hooks/useRequireRole";
 import { ROLES } from "@/constants/roles";
 import { addClass, getClasses } from "@/services/classService";
 import { getSchoolDetails } from "@/services/schoolService";
+import { getStudents } from "@/services/studentService";
 import { useEffect } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -34,11 +35,13 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 
 
 export default function ClassesPage() {
   const { loading, user } = useRequireRole(ROLES.SCHOOL);
   const [school, setSchool] = useState<any>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (user?.id) {
@@ -53,7 +56,11 @@ export default function ClassesPage() {
     const fetchClasses = async () => {
       if (school?.id) {
         setLoadingClasses(true);
-        const data = await getClasses(school.id);
+        const [data, studentsData] = await Promise.all([
+          getClasses(school.id),
+          getStudents(school.id)
+        ]);
+
         if (data) {
           const grouped = data.reduce((acc: any[], row: any) => {
             let cls = acc.find(c => c.name === row.class_name);
@@ -76,6 +83,36 @@ export default function ClassesPage() {
             }
             return acc;
           }, []);
+
+          // Calculate student counts
+          if (studentsData) {
+            studentsData.forEach((student: any) => {
+              const record = student.student_records?.[0];
+              if (record?.classes) {
+                const className = record.classes.class_name;
+                const sectionName = record.classes.section;
+
+                const cls = grouped.find((c: any) => c.name === className);
+                if (cls) {
+                  cls.totalStudents += 1;
+                  const sec = cls.sections.find((s: any) => s.name === sectionName);
+                  if (sec) {
+                    sec.students += 1;
+                    // Add student initials as fallback avatar
+                    if (sec.avatars.length < 5) {
+                      const initials = student.name
+                        .split(' ')
+                        .map((n: string) => n[0].toUpperCase())
+                        .join('')
+                        .slice(0, 2);
+                      sec.avatars.push({ name: student.name, initials });
+                    }
+                  }
+                }
+              }
+            });
+          }
+
           setClasses(grouped);
         }
         setLoadingClasses(false);
@@ -328,9 +365,10 @@ export default function ClassesPage() {
                 {cls.sections.length > 0 ? (
                   <div className="flex flex-wrap gap-4">
                     {cls.sections.map((section: any) => (
-                      <div 
+                      <div
+                        onClick={() => router.push(`/school/classes/${section.id}`)} 
                         key={section.id} 
-                        className="group relative flex flex-col p-4 w-40 rounded-xl border bg-white dark:bg-zinc-950 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer hover:shadow-md"
+                        className="group relative flex flex-col p-4 w-52 rounded-xl border bg-white dark:bg-zinc-950 shadow-[0_2px_8px_-4px_rgba(0,0,0,0.05)] hover:border-purple-300 dark:hover:border-purple-700 transition-all cursor-pointer hover:shadow-md"
                       >
                         <div className="flex justify-between items-start mb-3">
                           <h4 className="font-bold text-foreground text-base tracking-tight">{"Section " + section.name}</h4>
@@ -352,10 +390,11 @@ export default function ClassesPage() {
                           
                           {section.avatars.length > 0 && (
                             <div className="flex -space-x-2">
-                              {section.avatars.slice(0, 3).map((avatarSrc: string, i: number) => (
+                              {section.avatars.slice(0, 3).map((avatar: any, i: number) => (
                                 <Avatar key={i} className="h-6 w-6 border-2 border-white dark:border-zinc-950">
-                                  <AvatarImage src={avatarSrc} />
-                                  <AvatarFallback className="text-[10px] bg-indigo-100 text-indigo-700">NA</AvatarFallback>
+                                  <AvatarFallback className="text-[9px] bg-indigo-100 text-indigo-700 font-bold">
+                                    {avatar.initials}
+                                  </AvatarFallback>
                                 </Avatar>
                               ))}
                               {section.avatars.length > 3 && (

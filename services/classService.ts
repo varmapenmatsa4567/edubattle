@@ -28,4 +28,17 @@ export const getClasses = async (school_id: string) => {
     }
     return data;
 }
+
+export const getClassDetails = async (class_id: string) => {
+    const { data, error } = await supabase
+        .from("classes")
+        .select("*")
+        .eq("id", class_id)
+        .single();
+    if (error) {
+        console.error(error.message);
+        return null;
+    }
+    return data;
+}
     

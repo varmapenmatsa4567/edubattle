@@ -1,9 +1,43 @@
 "use client";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import { useRequireRole } from "@/hooks/useRequireRole";
+import { ROLES } from "@/constants/roles";
+import { getSchoolDetails } from "@/services/schoolService";
+import { getStudents } from "@/services/studentService";
+import { Spinner } from "@/components/ui/spinner";
 
 const SchoolPage = () => {
+  const { loading, user } = useRequireRole(ROLES.SCHOOL);
+  const [school, setSchool] = useState<any>(null);
+  const [students, setStudents] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (user?.id) {
+        const schoolData = await getSchoolDetails(user.id);
+        setSchool(schoolData);
+
+        if (schoolData?.id) {
+          const studentsData = await getStudents(schoolData.id);
+          if (studentsData) {
+            setStudents(studentsData);
+          }
+        }
+      }
+    };
+    fetchData();
+  }, [user]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[500px]">
+        <Spinner />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full h-full pb-20 space-y-4">
@@ -26,7 +60,7 @@ const SchoolPage = () => {
 						</div>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">1,200</div>
+            <div className="text-3xl font-bold">{students.length}</div>
             <p className="text-xs font-medium text-emerald-500 mt-1">
               +8% from last month
             </p>
