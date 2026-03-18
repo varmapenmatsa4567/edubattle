@@ -8,6 +8,7 @@ import { getUserRole } from "@/services/userService";
 export const useRequireRole = (requiredRole: string) => {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     const checkAccess = async () => {
@@ -26,9 +27,10 @@ export const useRequireRole = (requiredRole: string) => {
       }
 
       setLoading(false);
+      setUser(user);
     };
 
     checkAccess();
   }, []);
-  return { loading };
+  return { loading, user };
 };

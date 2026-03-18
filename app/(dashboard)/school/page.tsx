@@ -1,49 +1,12 @@
 "use client";
-import { useRequireRole } from "@/hooks/useRequireRole";
-import { ROLES } from "@/constants/roles";
-import { Input } from "@/components/ui/input";
-import { Bell, Search } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
-import { Spinner } from "@/components/ui/spinner";
 
 const SchoolPage = () => {
-  const { loading } = useRequireRole(ROLES.SCHOOL);
-
-  if (loading) {
-    return <div className="flex items-center justify-center h-screen">
-      <Spinner />
-    </div>;
-  }
 
   return (
-    <div className="flex-1 space-y-4 p-8 pt-6 w-full h-full pb-20">
-      <div className="flex flex-col md:flex-row items-center justify-between space-y-2 mb-8 gap-4 border-b pb-4">
-        <div className="relative w-full md:w-1/3">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search students, teachers, or quizzes..."
-            className="w-full pl-8 bg-muted/50 border-none rounded-lg"
-          />
-        </div>
-        <div className="flex items-center space-x-6 w-full md:w-auto justify-end">
-					<div className="relative">
-          	<Bell className="h-5 w-5 text-muted-foreground cursor-pointer hover:text-foreground transition-colors" />
-						<span className="absolute -top-1 -right-1 flex h-2.5 w-2.5 rounded-full bg-red-500"></span>
-					</div>
-          <div className="flex items-center space-x-3">
-            <div className="text-right hidden sm:block">
-              <p className="text-sm font-medium leading-none">Admin User</p>
-              <p className="text-xs text-muted-foreground">School Administrator</p>
-            </div>
-            <Avatar className="h-10 w-10 bg-purple-500 cursor-pointer">
-              <AvatarFallback className="bg-purple-500 text-white font-semibold">AU</AvatarFallback>
-            </Avatar>
-          </div>
-        </div>
-      </div>
+    <div className="w-full h-full pb-20 space-y-4">
 
       <div className="flex flex-col gap-2 mb-8">
         <h2 className="text-3xl font-bold tracking-tight">School Dashboard 🏫</h2>
@@ -52,13 +15,13 @@ const SchoolPage = () => {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
         <Card className="rounded-xl shadow-sm border-muted/50 bg-white dark:bg-zinc-950">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-md font-medium text-muted-foreground">
               Total Students
             </CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <div className="h-12 w-12 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
 						</div>
           </CardHeader>
@@ -71,10 +34,10 @@ const SchoolPage = () => {
         </Card>
         <Card className="rounded-xl shadow-sm border-muted/50 bg-white dark:bg-zinc-950">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-md font-medium text-muted-foreground">
               Total Teachers
             </CardTitle>
-						<div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+						<div className="h-12 w-12 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
 						</div>
           </CardHeader>
@@ -87,10 +50,10 @@ const SchoolPage = () => {
         </Card>
         <Card className="rounded-xl shadow-sm border-muted/50 bg-white dark:bg-zinc-950">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-md font-medium text-muted-foreground">
               Total Quizzes
             </CardTitle>
-						<div className="h-10 w-10 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
+						<div className="h-12 w-12 rounded-lg bg-orange-100 dark:bg-orange-900/30 flex items-center justify-center text-orange-600 dark:text-orange-400">
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
 						</div>
           </CardHeader>
@@ -103,10 +66,10 @@ const SchoolPage = () => {
         </Card>
         <Card className="rounded-xl shadow-sm border-muted/50 bg-white dark:bg-zinc-950">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-md font-medium text-muted-foreground">
               Growth Rate
             </CardTitle>
-            <div className="h-10 w-10 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+            <div className="h-12 w-12 rounded-lg bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
 							<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
 						</div>
           </CardHeader>
