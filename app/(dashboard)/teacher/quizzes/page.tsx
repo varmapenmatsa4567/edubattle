@@ -46,9 +46,12 @@ import { ROLES } from "@/constants/roles";
 import { getTeacherDetails } from "@/services/teacherService";
 import { getQuizzesByTeacher } from "@/services/quizService";
 import { format } from "date-fns";
+import { useRouter } from "next/navigation";
 
 export default function TeacherQuizzesPage() {
   const { loading, user } = useRequireRole(ROLES.TEACHER);
+  const router = useRouter();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [quizzes, setQuizzes] = useState<any[]>([]);
   const [loadingQuizzes, setLoadingQuizzes] = useState(true);
@@ -162,10 +165,14 @@ export default function TeacherQuizzesPage() {
                           <Eye className="h-3.5 w-3.5" />
                           View
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="cursor-pointer font-medium text-xs uppercase flex items-center gap-2">
+                        <DropdownMenuItem 
+                          className="cursor-pointer font-medium text-xs uppercase flex items-center gap-2"
+                          onClick={() => router.push(`/teacher/quizzes/edit?quizId=${quiz.id}`)}
+                        >
                           <Edit2 className="h-3.5 w-3.5" />
                           Edit
                         </DropdownMenuItem>
+
                         <DropdownMenuItem className="cursor-pointer font-medium text-xs uppercase flex items-center gap-2 text-red-600 focus:text-red-700">
                           <Trash2 className="h-3.5 w-3.5" />
                           Delete
