@@ -92,3 +92,65 @@ export const getClassStudents = async (class_id: string, school_id: string) => {
     return data;
 }
 
+export const getTeacherStudents = async (teacher_id: string, school_id: string) => {
+  const { data: classSubjects, error: csError } = await supabase
+    .from('class_subjects')
+    .select('class_id, subject:subjects(id, subject_name)')
+    .eq('teacher_id', teacher_id)
+
+  if (csError) throw csError
+
+  const classIds = (classSubjects as any[])
+    .map((cs: any) => cs.class_id)
+    .filter((id: any) => id !== null)
+
+  if (classIds.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('student_records')
+    .select(`
+      academic_year,
+      is_current,
+      student:students (
+        id,
+        name,
+        user_id
+      ),
+      class:classes (
+        id,
+        class_name,
+        section,
+        school_id
+      )
+    `)
+    .in('class_id', classIds)
+    .eq('is_current', true)
+
+  if (error) {
+    console.log(error.message)
+    return null
+  }
+
+  const classSubjectMap: Record<string, any[]> = {}
+  ;(classSubjects as any[]).forEach((cs: any) => {
+    if (!cs.class_id || !cs.subject) return
+    if (!classSubjectMap[cs.class_id]) classSubjectMap[cs.class_id] = []
+    const alreadyAdded = classSubjectMap[cs.class_id].find((s: any) => s.id === cs.subject.id)
+    if (!alreadyAdded) classSubjectMap[cs.class_id].push(cs.subject)
+  })
+
+  const result = (data as any[])
+    .filter((r: any) => r.student && r.class && r.class.school_id === school_id)
+    .map((r: any) => ({
+      ...r.student,
+      class_id: r.class.id,
+      class_name: r.class.class_name,
+      section: r.class.section,
+      academic_year: r.academic_year,
+      subjects: classSubjectMap[r.class.id] ?? [],
+    }))
+
+    console.log(result);
+
+  return result
+}

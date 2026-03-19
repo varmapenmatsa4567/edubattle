@@ -10,10 +10,12 @@ export const getTeachers = async (school_id: string) => {
             class_subjects (
                 id,
                 classes (
+                    id,
                     class_name,
                     section
                 ),
                 subjects (
+                    id,
                     subject_name
                 )
             )
@@ -42,4 +44,33 @@ export const addTeacher = async (school_id: string, name: string, email: string,
         return null;
     }
     return true;
+}
+export const getTeacherDetails = async (user_id: string) => {
+    const { data, error } = await supabase
+        .from("teachers")
+        .select(`
+            *,
+            class_subjects (
+                id,
+                classes (
+                    id,
+                    class_name,
+                    section
+                ),
+                subjects (
+                    id,
+                    subject_name
+                )
+            )
+        `)
+        .eq("user_id", user_id)
+        .single();
+    
+    if (error) {
+        console.error(error.message);
+        return null;
+    }
+
+    console.log("teacher details", data);
+    return data;
 }
