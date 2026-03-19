@@ -154,3 +154,40 @@ export const getTeacherStudents = async (teacher_id: string, school_id: string) 
 
   return result
 }
+export const getStudentDetails = async (user_id: string) => {
+    const { data, error } = await supabase
+        .from("students")
+        .select(`
+            id,
+            name,
+            user_id,
+            school_id,
+            student_records!inner(
+                academic_year,
+                is_current,
+                classes(
+                    id,
+                    class_name,
+                    section
+                )
+            )
+        `)
+        .eq("user_id", user_id)
+        .eq("student_records.is_current", true);
+
+    if (error) {
+        console.error("Error fetching student details:", error.message);
+        return null;
+    }
+
+    if (!data || data.length === 0) return null;
+
+    const student = data[0];
+    const currentRecord = student.student_records?.[0];
+    
+    return {
+        ...student,
+        class: Array.isArray(currentRecord?.classes) ? currentRecord.classes[0] : (currentRecord?.classes || null),
+        academic_year: currentRecord?.academic_year || null
+    };
+};

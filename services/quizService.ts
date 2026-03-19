@@ -140,3 +140,41 @@ export const updateQuiz = async (
 
     return true;
 };
+
+export const getQuizResultByStudent = async (student_id: string, quiz_id: string) => {
+    const { data, error } = await supabase
+        .from("quiz_attempts")
+        .select("*")
+        .eq("student_id", student_id)
+        .eq("quiz_id", quiz_id);
+
+    if (error) {
+        console.error("Error fetching quiz result:", error.message);
+        return null;
+    }
+
+    if(data.length == 0) return null;
+    return data[0];
+}
+    
+export const getQuizzesByClass = async (class_id: string) => {
+    const { data, error } = await supabase
+        .from("quiz")
+        .select(`
+            id,
+            title,
+            count,
+            created_at,
+            subjects (
+                subject_name
+            )
+        `)
+        .eq("class_id", class_id)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching quizzes by class:", error.message);
+        return null;
+    }
+    return data;
+};
