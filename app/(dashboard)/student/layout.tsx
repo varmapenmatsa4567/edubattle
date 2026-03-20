@@ -192,7 +192,7 @@ export default function StudentDashboardLayout({
       <main className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
         <header className="bg-white border-b border-gray-200 px-4 md:px-8 py-4">
-          <div className="flex items-center justify-between">
+          {/* <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -227,10 +227,10 @@ export default function StudentDashboardLayout({
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* XP Progress Bar */}
-          <div className="mt-4">
+          <div className="">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600">Progress to Level {level + 1}</span>
               <span className="text-sm font-semibold text-[#FF6B35]">
