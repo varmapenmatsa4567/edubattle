@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Calendar, Clock, FileText, CheckCircle, AlertCircle, Play, Loader2 } from 'lucide-react';
 import { useRequireRole } from "@/hooks/useRequireRole";
 import { ROLES } from "@/constants/roles";
@@ -209,10 +210,13 @@ export default function Assignments() {
                   <span className="font-medium text-gray-900">{quiz.totalMarks}</span> Marks
                 </div>
                 {quiz.status === 'pending' ? (
-                  <button className="bg-[#FF6B35] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#FF6B35]/90 transition-colors flex items-center gap-2">
+                  <Link 
+                    href={`/student/assignments/${quiz.id}`}
+                    className="bg-[#FF6B35] text-white px-6 py-2 rounded-lg font-medium hover:bg-[#FF6B35]/90 transition-colors flex items-center gap-2"
+                  >
                     <Play className="w-4 h-4" />
                     Start
-                  </button>
+                  </Link>
                 ) : (
                   <div className="text-right">
                     <p className="text-sm text-gray-600">Score</p>
