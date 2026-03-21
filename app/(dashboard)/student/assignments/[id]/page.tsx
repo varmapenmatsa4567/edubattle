@@ -53,8 +53,8 @@ export default function QuizAttemptScreen() {
         if (quizData) {
           setQuiz(quizData);
           setQuestions(quizData.questions || []);
-          // Use real count or default
-          const timeLimit = quizData.time_limit || DEFAULT_TIME_LIMIT;
+          // Use real time limit from database (Stored as 'time' in quiz table)
+          const timeLimit = quizData.time || DEFAULT_TIME_LIMIT;
           setTimeLeft(timeLimit * 60);
         }
         if (studentData) {

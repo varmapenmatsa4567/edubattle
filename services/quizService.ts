@@ -7,7 +7,9 @@ export const createQuiz = async (
   subject_id: string, 
   title: string, 
   question_count: number, 
-  questions: any[]
+  questions: any[],
+  time?: number,
+  due_date?: string
 ) => {
     // 1. Create the Quiz record
     const { data: quizData, error: quizError } = await supabase
@@ -19,6 +21,8 @@ export const createQuiz = async (
             subject_id,
             title,
             count: question_count,
+            time,
+            due_date
         })
         .select()
         .single();
@@ -93,14 +97,18 @@ export const getQuizById = async (quiz_id: string) => {
 export const updateQuiz = async (
     quiz_id: string, 
     title: string, 
-    questions: any[]
+    questions: any[],
+    time?: number,
+    due_date?: string
 ) => {
     // 1. Update the Quiz record
     const { error: quizError } = await supabase
         .from("quiz")
         .update({
             title,
-            count: questions.length
+            count: questions.length,
+            time,
+            due_date
         })
         .eq("id", quiz_id);
 
@@ -165,6 +173,8 @@ export const getQuizzesByClass = async (class_id: string) => {
             title,
             count,
             created_at,
+            time,
+            due_date,
             subjects (
                 subject_name
             )
@@ -208,84 +218,73 @@ export const saveFullQuizResult = async (
     total_questions: number,
     answers: { question_id: string, selected_option: string, is_correct: boolean }[]
 ) => {
-    // 1. Save Quiz Attempt
-    const xp_earned = correctCount * 10;
-    const { data: attempt, error: attemptError } = await supabase
-        .from("quiz_attempts")
-        .upsert({
-            student_id,
-            quiz_id,
-            correct_count: correctCount,
-            score: correctCount * 2,
-            xp_earned: xp_earned,
-        }, { onConflict: 'quiz_id, student_id' })
-        .select()
-        .single();
+    const { data, error } = await supabase.rpc("submit_quiz", {
+        p_student_id: student_id,
+        p_quiz_id: quiz_id,
+        p_school_id: school_id,
+        p_class_id: class_id,
+        p_correct_count: correctCount,
+        p_total_questions: total_questions,
+        p_answers: answers
+    });
 
-    if (attemptError) {
-        console.error("Error saving quiz attempt:", attemptError.message);
+    if (error) {
+        console.error("Error submitting quiz:", error.message);
         return null;
     }
 
-    // 2. Save individual answers
-    const answerInserts = answers.map(ans => ({
-        attempt_id: attempt.id,
-        question_id: ans.question_id,
-        selected_option: ans.selected_option,
-        is_correct: ans.is_correct
-    }));
+    return data;
+};
 
-    const { error: answersError } = await supabase
+export const getQuizAttemptWithAnswers = async (student_id: string, quiz_id: string) => {
+    // 1. Get the attempt
+    const { data: attempt, error: attemptError } = await supabase
+        .from("quiz_attempts")
+        .select(`
+            *,
+            quiz:quiz (
+                title,
+                subjects (subject_name)
+            )
+        `)
+        .eq("student_id", student_id)
+        .eq("quiz_id", quiz_id)
+        .single();
+
+    if (attemptError || !attempt) {
+        console.error("Error fetching attempt:", attemptError?.message);
+        return null;
+    }
+
+    // 2. Get the answers joined with questions
+    const { data: answers, error: answersError } = await supabase
         .from("quiz_answers")
-        .upsert(answerInserts, { onConflict: 'attempt_id, question_id' });
+        .select(`
+            id,
+            selected_option,
+            is_correct,
+            question:questions (
+                id,
+                question,
+                options,
+                answer
+            )
+        `)
+        .eq("attempt_id", attempt.id);
 
     if (answersError) {
-        console.error("Error saving quiz answers:", answersError.message);
+        console.error("Error fetching quiz answers:", answersError.message);
+        return null;
     }
 
-    // 3. Log XP
-    if (xp_earned > 0) {
-        const { error: xpLogError } = await supabase
-            .from("xp_logs")
-            .insert({
-                student_id,
-                school_id,
-                class_id,
-                source: "quiz",
-                source_id: quiz_id,
-                xp: xp_earned
-            });
-        
-        if (xpLogError) {
-            console.error("Error logging XP:", xpLogError.message);
-        }
-
-        // 4. Update Student XP Total
-        // Check if record exists
-        const { data: existingXp } = await supabase
-            .from("student_xp")
-            .select("total_xp")
-            .eq("student_id", student_id)
-            .eq("school_id", school_id)
-            .single();
-
-        if (existingXp) {
-            await supabase
-                .from("student_xp")
-                .update({ total_xp: existingXp.total_xp + xp_earned })
-                .eq("student_id", student_id)
-                .eq("school_id", school_id);
-        } else {
-            await supabase
-                .from("student_xp")
-                .insert({
-                    student_id,
-                    school_id,
-                    class_id,
-                    total_xp: xp_earned
-                });
-        }
-    }
-
-    return attempt;
+    return {
+        ...attempt,
+        answers: answers.map((a: any) => ({
+            ...a,
+            question_id: a.question.id,
+            question_text: a.question.question,
+            options: a.question.options,
+            correct_answer: a.question.answer
+        }))
+    };
 };

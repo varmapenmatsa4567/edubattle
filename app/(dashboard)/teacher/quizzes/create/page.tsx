@@ -61,6 +61,8 @@ function QuizCreateContent() {
   // AI Flow state
   const [topic, setTopic] = useState("");
   const [questionCount, setQuestionCount] = useState(5);
+  const [timeLimit, setTimeLimit] = useState(30);
+  const [dueDate, setDueDate] = useState("");
   
   // Manual Flow state
   const [manualQuestions, setManualQuestions] = useState<Question[]>([
@@ -232,7 +234,9 @@ function QuizCreateContent() {
         selectedSubjectId,
         quizTitle,
         finalCount,
-        questionsToSave
+        questionsToSave,
+        timeLimit,
+        dueDate
       );
 
       if (result) {
@@ -366,7 +370,7 @@ function QuizCreateContent() {
 
             {/* AI SPECIFIC: QUESTION COUNT */}
             {mode === "AI" && (
-              <div className="space-y-4 pt-2">
+              <div className="space-y-4 pt-2 border-t mt-4">
                 <div className="flex justify-between items-center text-xs font-bold text-slate-500 uppercase">
                   <span>Count</span>
                   <span className="text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">{questionCount} Qs</span>
@@ -374,6 +378,30 @@ function QuizCreateContent() {
                 <Slider min={5} max={50} step={1} value={[questionCount]} onValueChange={(val) => setQuestionCount(val[0])} />
               </div>
             )}
+
+            {/* TIMING & DUE DATE (For both modes) */}
+            <div className="space-y-4 pt-4 border-t mt-4">
+               <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Timing & Due Date</h4>
+               <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Duration (mins)</label>
+                  <Input 
+                    type="number" 
+                    value={timeLimit} 
+                    onChange={(e) => setTimeLimit(parseInt(e.target.value) || 0)} 
+                    className="h-10 rounded-xl"
+                  />
+               </div>
+               <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Due Date</label>
+                  <Input 
+                    type="date" 
+                    value={dueDate} 
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setDueDate(e.target.value)} 
+                    className="h-10 rounded-xl"
+                  />
+               </div>
+            </div>
           </Card>
         </div>
 

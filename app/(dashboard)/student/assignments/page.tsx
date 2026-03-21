@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Calendar, Clock, FileText, CheckCircle, AlertCircle, Play, Loader2 } from 'lucide-react';
+import { format, isToday, isBefore, startOfDay } from 'date-fns';
 import { useRequireRole } from "@/hooks/useRequireRole";
 import { ROLES } from "@/constants/roles";
 import { getStudentDetails } from "@/services/studentService";
@@ -61,10 +62,11 @@ export default function Assignments() {
               subject: quiz.subjects?.subject_name ?? "General",
               questions: questionCount,
               totalMarks: questionCount * MARKS_PER_QUESTION,
-              duration: HARDCODED_DURATION_MINS,
-              dueDate: HARDCODED_DUE_DATE,
+              duration: quiz.time ?? HARDCODED_DURATION_MINS,
+              dueDate: quiz.due_date ?? HARDCODED_DUE_DATE,
               status: result ? 'completed' : 'pending',
               score: result?.score ?? undefined,
+              totalMarks_real: questionCount * MARKS_PER_QUESTION, // Using local var to be safe
             } as EnrichedQuiz;
           })
         );
@@ -87,16 +89,24 @@ export default function Assignments() {
   const pendingCount = assignments.filter((q) => q.status === 'pending').length;
   const completedCount = assignments.filter((q) => q.status === 'completed').length;
 
-  const getDueDateLabel = (dateStr: string) => {
+  const getDueDateLabel = (dateStr: string | null) => {
+    if (!dateStr) return { label: 'No Date', cls: 'text-gray-400 bg-gray-50 border-transparent' };
+    
     const date = new Date(dateStr);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diff = Math.ceil((date.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diff < 0) return { label: 'Overdue', cls: 'text-[#E24B4A] bg-red-50' };
-    if (diff === 0) return { label: 'Due Today', cls: 'text-[#FF6B35] bg-orange-50' };
+    const today = startOfDay(new Date());
+    const dueDate = startOfDay(date);
+
+    if (isToday(date)) {
+      return { label: 'Due Today', cls: 'text-[#FF6B35] bg-[#FFF4F0] border-[#FF6B35]/20' };
+    }
+    
+    if (isBefore(dueDate, today)) {
+      return { label: 'Overdue', cls: 'text-[#E24B4A] bg-[#FFF0F0] border-[#E24B4A]/20' };
+    }
+
     return {
-      label: date.toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' }),
-      cls: 'text-gray-600 bg-gray-50',
+      label: format(date, 'dd MMM yyyy'),
+      cls: 'text-gray-600 bg-gray-100 border-gray-200',
     };
   };
 
@@ -193,7 +203,7 @@ export default function Assignments() {
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="flex items-center gap-2 text-sm text-gray-600">
                   <Calendar className="w-4 h-4" />
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${due.cls}`}>
+                  <span className={`px-2 py-1 rounded-full text-[10px] font-bold border ${due.cls}`}>
                     {due.label}
                   </span>
                 </div>
@@ -218,11 +228,20 @@ export default function Assignments() {
                     Start
                   </Link>
                 ) : (
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600">Score</p>
-                    <p className="text-lg font-bold text-[#1D9E75]">
-                      {quiz.score !== undefined ? `${quiz.score}/${quiz.totalMarks}` : `✓ Done`}
-                    </p>
+                  <div className="flex items-center gap-4">
+                    <Link 
+                      href={`/student/assignments/${quiz.id}/review`}
+                      className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors flex items-center gap-2"
+                    >
+                      <FileText className="w-4 h-4" />
+                      Review
+                    </Link>
+                    <div className="text-right border-l pl-4 border-gray-100">
+                      <p className="text-[10px] uppercase tracking-wider text-gray-500 font-bold mb-0.5">Score</p>
+                      <p className="text-lg font-bold text-[#20C997]">
+                        {quiz.score !== undefined ? `${quiz.score}/${quiz.totalMarks}` : `✓ Done`}
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
