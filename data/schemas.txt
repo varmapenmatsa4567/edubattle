@@ -90,6 +90,8 @@ create table public.quiz (
   title text null,
   count bigint null,
   subject_id uuid null,
+  time bigint null,
+  due_date timestamp with time zone null,
   constraint quiz_pkey primary key (id),
   constraint quiz_class_id_fkey foreign KEY (class_id) references classes (id),
   constraint quiz_school_id_fkey foreign KEY (school_id) references schools (id),
