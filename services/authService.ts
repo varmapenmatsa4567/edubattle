@@ -1,18 +1,24 @@
 import { supabase } from "@/lib/supabaseClient";
 
+/**
+ * Signs up a new user with email and password.
+ */
 export const signUp = (email: string, password: string) => {
-    return supabase.auth.signUp({
-        email,
-        password
-    });
-}
+  return supabase.auth.signUp({
+    email,
+    password,
+  });
+};
 
+/**
+ * Logs in an existing user with email and password.
+ */
 export const login = (email: string, password: string) => {
-    return supabase.auth.signInWithPassword({
-        email,
-        password
-    });
-}
+  return supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+};
 
 export const isEmailExists = async (email: string) => {
     console.log("Checking...")

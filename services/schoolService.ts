@@ -1,60 +1,83 @@
-import { supabase } from "@/lib/supabaseClient";
+/**
+ * Service for school-related database operations.
+ */
+import { supabase } from '@/lib/supabaseClient';
+import { School } from '@/types';
+import { SchoolRow } from '@/types/database.types';
 
-export const createSchool = async (userId: string, name: string) => {
-    const { data, error } = await supabase
-        .from("schools")
-        .insert({
-            user_id: userId,
-            name: name
-        })
+/**
+ * Creates a new school record.
+ */
+export const createSchool = async (userId: string, name: string): Promise<School | null> => {
+  const { data, error } = await supabase
+    .from('schools')
+    .insert({
+      user_id: userId,
+      name: name,
+    })
+    .select()
+    .single();
 
-    if (error) {
-        console.error(error.message);
-        return null;
-    }
+  if (error) {
+    console.error('Error creating school:', error.message);
+    return null;
+  }
 
-    return data;
-}
+  return data as School;
+};
 
-export const getSchoolDetails = async (userId: string) => {
-    const { data, error } = await supabase
-        .from("schools")
-        .select("*")
-        .eq("user_id", userId)
-        .single();
+/**
+ * Fetches school details by user ID.
+ */
+export const getSchoolDetails = async (userId: string): Promise<School | null> => {
+  const { data, error } = await supabase
+    .from('schools')
+    .select('*')
+    .eq('user_id', userId)
+    .single();
 
-    if (error) {
-        console.log(error.message);
-        return null;
-    }
+  if (error) {
+    console.error('Error fetching school details:', error.message);
+    return null;
+  }
 
-    return data;
-}
+  return data as School;
+};
 
-export const updateSchool = async (schoolId: string, updates: any) => {
-    const { data, error } = await supabase
-        .from("schools")
-        .update(updates)
-        .eq("id", schoolId);
+/**
+ * Updates an existing school record.
+ */
+export const updateSchool = async (
+  schoolId: string, 
+  updates: Partial<SchoolRow>
+): Promise<boolean> => {
+  const { error } = await supabase
+    .from('schools')
+    .update(updates)
+    .eq('id', schoolId);
 
-    if (error) {
-        console.log(error.message);
-        return null;
-    }
+  if (error) {
+    console.error('Error updating school:', error.message);
+    return false;
+  }
 
-    return "Success";
-}
+  return true;
+};
 
-export const isUserNameAvailable = async (username: string) => {
-    const { data, error } = await supabase
-        .from("schools")
-        .select("*")
-        .eq("username", username)
-        .single();
+/**
+ * Checks if a username is available for a school.
+ */
+export const isUserNameAvailable = async (username: string): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('schools')
+    .select('id')
+    .eq('username', username)
+    .single();
 
-    if (error) {
-        return true; // No record found, so it is available
-    }
+  // If error is present, it likely means no record was found (available)
+  if (error) {
+    return true;
+  }
 
-    return false; // Record found, so it is NOT available
-}
+  return !data; // If data exists, username is NOT available
+};

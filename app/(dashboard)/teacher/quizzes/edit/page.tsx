@@ -1,82 +1,101 @@
-"use client";
+/**
+ * Teacher Quiz Edit Page
+ * Allows teachers to modify existing quizzes, including title, questions, and options.
+ */
+'use client';
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   Plus, 
   Trash2, 
   Save, 
   ArrowLeft,
   CheckCircle2,
-  AlertCircle
-} from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
-import { useRequireRole } from "@/hooks/useRequireRole";
-import { ROLES } from "@/constants/roles";
-import { getQuizById, updateQuiz } from "@/services/quizService";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+  AlertCircle,
+  Loader2
+} from 'lucide-react';
+import { toast } from 'sonner';
 
-interface Question {
-  id?: string;
-  question: string;
-  options: string[];
-  answer: string;
-  explanation?: string;
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Spinner } from '@/components/ui/spinner';
+
+import { useRequireRole } from '@/hooks/useRequireRole';
+import { Role, ROUTES } from '@/constants';
+import { getQuizById, updateQuiz } from '@/services/quizService';
+import { Question, Quiz } from '@/types';
+import { cn } from '@/lib/utils';
+
+/**
+ * Question interface for the edit form state.
+ */
+interface QuestionEditState extends Partial<Question> {
   isNew?: boolean;
 }
 
+/**
+ * Inner component to handle quiz data fetching and editing logic.
+ */
 function QuizEditContent() {
-  const { loading, user } = useRequireRole(ROLES.TEACHER);
+  const { loading: authLoading, user } = useRequireRole(Role.TEACHER);
   const searchParams = useSearchParams();
   const router = useRouter();
-  const quizId = searchParams.get("quizId");
+  const quizId = searchParams.get('quizId');
 
   const [loadingData, setLoadingData] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [quizTitle, setQuizTitle] = useState("");
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [quizTitle, setQuizTitle] = useState('');
+  const [questions, setQuestions] = useState<QuestionEditState[]>([]);
 
-  // Fetch initial data
+  /**
+   * Fetches the quiz details by ID.
+   */
   useEffect(() => {
     const fetchQuiz = async () => {
-      if (quizId) {
-        setLoadingData(true);
+      if (!quizId) {
+        toast.error('No quiz ID provided.');
+        router.push(ROUTES.TEACHER.QUIZZES.LIST);
+        return;
+      }
+
+      setLoadingData(true);
+      try {
         const data = await getQuizById(quizId);
         if (data) {
-          setQuizTitle(data.title);
-          setQuestions(data.questions || []);
+          setQuizTitle(data.title || '');
+          setQuestions((data.questions as QuestionEditState[]) || []);
         } else {
-          toast.error("Quiz not found");
-          router.push("/teacher/quizzes");
+          toast.error('Quiz not found in repository.');
+          router.push(ROUTES.TEACHER.QUIZZES.LIST);
         }
+      } catch (err) {
+        console.error('Error fetching quiz for edit:', err);
+        toast.error('Failed to load quiz data.');
+      } finally {
         setLoadingData(false);
       }
     };
     fetchQuiz();
   }, [quizId, router]);
 
-  // Handlers
   const handleAddQuestion = () => {
-    const newQuestion: Question = {
-      question: "",
-      options: ["", "", "", ""],
-      answer: "",
+    const newQuestion: QuestionEditState = {
+      question: '',
+      options: ['', '', '', ''],
+      answer: '',
       isNew: true
     };
     setQuestions([...questions, newQuestion]);
   };
 
   const handleDeleteQuestion = (index: number) => {
-    const newQuestions = questions.filter((_, i) => i !== index);
-    setQuestions(newQuestions);
+    setQuestions(questions.filter((_, i) => i !== index));
   };
 
-  const handleUpdateQuestion = (index: number, field: keyof Question, value: any) => {
+  const handleUpdateQuestion = (index: number, field: keyof QuestionEditState, value: any) => {
     const newQuestions = [...questions];
     newQuestions[index] = { ...newQuestions[index], [field]: value };
     setQuestions(newQuestions);
@@ -84,35 +103,38 @@ function QuizEditContent() {
 
   const handleOptionChange = (qIndex: number, oIndex: number, value: string) => {
     const newQuestions = [...questions];
-    const newOptions = [...newQuestions[qIndex].options];
+    const newOptions = [...(newQuestions[qIndex].options as string[])];
     newOptions[oIndex] = value;
     newQuestions[qIndex].options = newOptions;
     setQuestions(newQuestions);
   };
 
+  /**
+   * Validates and saves the updated quiz.
+   */
   const handleSave = async () => {
     if (!quizTitle.trim()) {
-      toast.error("Please enter a quiz title");
+      toast.error('Quiz title is required.');
       return;
     }
 
     if (questions.length === 0) {
-      toast.error("Quiz must have at least one question");
+      toast.error('At least one question is required.');
       return;
     }
 
-    // Basic validation
+    // Validation loop
     for (let i = 0; i < questions.length; i++) {
-      if (!questions[i].question.trim()) {
-        toast.error(`Question ${i + 1} is empty`);
+      if (!questions[i].question?.trim()) {
+        toast.error(`Question ${i + 1} content is missing.`);
         return;
       }
-      if (!questions[i].options || questions[i].options.some(opt => !opt.trim())) {
-        toast.error(`Question ${i + 1} has empty options`);
+      if (!questions[i].options || (questions[i].options as string[]).some(opt => !opt.trim())) {
+        toast.error(`Question ${i + 1} has incomplete options.`);
         return;
       }
-      if (!questions[i].answer.trim()) {
-        toast.error(`Question ${i + 1} has no correct answer selected`);
+      if (!questions[i].answer?.trim()) {
+        toast.error(`Question ${i + 1} needs a correct answer marked.`);
         return;
       }
     }
@@ -121,161 +143,166 @@ function QuizEditContent() {
     try {
       const success = await updateQuiz(quizId!, quizTitle, questions);
       if (success) {
-        toast.success("Quiz updated successfully");
-        router.push("/teacher/quizzes");
+        toast.success('Quiz updated successfully.');
+        router.push(ROUTES.TEACHER.QUIZZES.LIST);
       } else {
-        toast.error("Failed to update quiz");
+        toast.error('Failed to commit updates to database.');
       }
     } catch (error) {
-      console.error("Save error:", error);
-      toast.error("An error occurred while saving");
+      console.error('Save error:', error);
+      toast.error('An unexpected error occurred during save.');
     } finally {
       setIsSaving(false);
     }
   };
 
-  if (loading || loadingData) {
+  if (authLoading || loadingData) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[500px]">
-        <Spinner />
+      <div className="flex flex-col items-center justify-center h-full min-h-[500px] gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-amber-500" />
+        <p className="text-gray-400 font-black uppercase tracking-widest text-xs">Loading Editor...</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto pb-24 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* TOOLBAR */}
-      <div className="sticky top-0 z-20 bg-background/80 backdrop-blur-md py-4 border-b flex items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} className="rounded-full">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
+    <div className="w-full max-w-5xl mx-auto pb-24 space-y-10 animate-in fade-in duration-500 px-6">
+      {/* HEADER TOOLBAR */}
+      <div className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl py-6 border-b-2 border-gray-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 px-2">
+        <div className="flex items-center gap-6">
+          <button 
+            onClick={() => router.back()} 
+            className="p-4 hover:bg-gray-50 rounded-[20px] transition-all active:scale-90 border-2 border-transparent hover:border-gray-100 group"
+          >
+            <ArrowLeft className="h-6 w-6 text-gray-400 group-hover:text-gray-900" />
+          </button>
           <div className="flex flex-col">
-            <h1 className="text-xl font-bold tracking-tight">Edit Quiz</h1>
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-              {questions.length} Questions Total
+            <h1 className="text-3xl font-black tracking-tight uppercase">Edit Assessment</h1>
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mt-1">
+              Currently Managing {questions.length} Units
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={() => router.back()} className="rounded-lg">
+        <div className="flex items-center gap-4 w-full md:w-auto">
+          <Button 
+            variant="outline" 
+            onClick={() => router.back()} 
+            className="rounded-2xl h-14 px-8 border-2 border-gray-100 font-black text-xs uppercase tracking-widest hover:bg-gray-50 flex-1 md:flex-none"
+          >
             Discard
           </Button>
           <Button 
             onClick={handleSave} 
             disabled={isSaving}
-            className="bg-purple-600 hover:bg-purple-500 rounded-lg min-w-[120px] shadow-lg shadow-purple-500/10 text-white"
+            className="rounded-2xl min-w-[180px] h-14 bg-amber-500 hover:bg-amber-600 text-white font-black text-xs uppercase tracking-[0.2em] shadow-xl shadow-amber-500/20 transition-all active:scale-95 flex-1 md:flex-none"
           >
-            {isSaving ? <Spinner className="h-4 w-4 border-white mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-            Save Changes
+            {isSaving ? <Loader2 className="h-5 w-5 animate-spin mr-3" /> : <Save className="h-5 w-5 mr-3" />}
+            Sync Updates
           </Button>
         </div>
       </div>
 
       {/* QUIZ TITLE CARD */}
-      <Card className="border-l-4 border-l-purple-600 shadow-sm overflow-hidden bg-white">
-        <CardContent className="p-8">
-          <div className="flex flex-col gap-2">
-            <label className="text-xs font-bold uppercase tracking-widest text-purple-600 mb-1">Quiz Title</label>
+      <Card className="border-2 border-gray-100 rounded-[32px] shadow-sm overflow-hidden bg-white">
+        <CardContent className="p-10">
+          <div className="flex flex-col gap-4">
+            <label className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-500">Repository Title</label>
             <Input 
               value={quizTitle}
               onChange={(e) => setQuizTitle(e.target.value)}
-              placeholder="e.g., Advanced Mathematics Assessment"
-              className="text-2xl font-bold h-auto py-3 border-none focus-visible:ring-0 px-0 placeholder:opacity-50 text-black shadow-none"
+              placeholder="e.g., Mathematics Mastery 101"
+              className="text-3xl font-black h-auto py-4 border-0 focus-visible:ring-0 px-0 placeholder:text-gray-200 text-gray-900 shadow-none leading-tight"
             />
-            <div className="h-px w-full bg-slate-100" />
-            <p className="text-xs text-muted-foreground mt-2 italic font-medium">
-              Changes will be applied to all sections where this quiz is active.
+            <div className="h-1 w-20 bg-amber-100 rounded-full" />
+            <p className="text-[11px] text-gray-400 mt-2 font-bold uppercase tracking-widest flex items-center gap-2">
+              <AlertCircle size={14} className="text-amber-500" />
+              Impacts all active classroom instances
             </p>
           </div>
         </CardContent>
       </Card>
 
       {/* QUESTIONS LIST */}
-      <div className="space-y-6">
+      <div className="space-y-10">
+        <div className="flex items-center justify-between px-2">
+           <h3 className="text-[11px] font-black uppercase tracking-[0.4em] text-gray-400">Inventory Items</h3>
+           <Button onClick={handleAddQuestion} className="rounded-[20px] h-12 bg-gray-900 text-white gap-3 px-8 font-black uppercase tracking-widest text-[10px] shadow-xl active:scale-95">
+              <Plus className="h-5 w-5" /> Insert New Unit
+           </Button>
+        </div>
+        
         {questions.map((q, qIndex) => (
-          <Card key={qIndex} className="group border shadow-sm hover:border-purple-200 transition-all duration-300 overflow-visible relative bg-white">
-             <div className="absolute -left-3 top-8 bg-white border h-8 w-8 rounded-full flex items-center justify-center font-bold text-xs text-purple-600 shadow-sm z-10 group-hover:bg-purple-600 group-hover:text-white group-hover:scale-110 transition-all">
-                {qIndex + 1}
-              </div>
-
-            <CardContent className="p-8 space-y-6">
-              {/* Question Text */}
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Question Content</label>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    onClick={() => handleDeleteQuestion(qIndex)}
-                    className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+          <Card key={qIndex} className="group border-2 border-gray-100 rounded-[40px] shadow-sm hover:border-amber-500/30 transition-all duration-500 relative bg-white overflow-hidden">
+             <div className="absolute left-0 top-0 bottom-0 w-2 bg-gray-100 group-hover:bg-amber-500 transition-colors" />
+             
+            <CardContent className="p-10 lg:p-12 space-y-10">
+              <div className="flex flex-col gap-6">
+                <div className="flex justify-between items-center">
+                   <div className="flex items-center gap-4">
+                      <span className="w-12 h-12 rounded-2xl bg-gray-900 text-white flex items-center justify-center font-black text-lg">{qIndex + 1}</span>
+                      <label className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">Question Content</label>
+                   </div>
+                   <button 
+                     onClick={() => handleDeleteQuestion(qIndex)} 
+                     className="p-4 text-gray-200 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
+                   >
+                      <Trash2 className="h-6 w-6" />
+                   </button>
                 </div>
                 <Textarea 
-                  value={q.question}
-                  onChange={(e) => handleUpdateQuestion(qIndex, "question", e.target.value)}
-                  placeholder="Ask your question here..."
-                  className="text-lg font-medium min-h-[100px] border-none bg-slate-50/50 focus-visible:ring-1 focus-visible:ring-purple-200 rounded-xl p-4 resize-none text-black shadow-none"
+                  value={q.question || ''}
+                  onChange={(e) => handleUpdateQuestion(qIndex, 'question', e.target.value)}
+                  placeholder="Define your question here..."
+                  className="text-2xl font-black min-h-[140px] border-0 bg-gray-50/50 focus-visible:ring-0 rounded-[32px] p-8 resize-none text-gray-900 placeholder:text-gray-300 leading-relaxed shadow-none"
                 />
               </div>
 
               {/* Options */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {q.options.map((opt, oIndex) => (
-                  <div key={oIndex} className="group/opt relative">
-                    <div className={cn(
-                      "flex items-center gap-3 p-1 rounded-xl border transition-all",
-                      q.answer === opt && opt !== "" 
-                        ? "border-emerald-200 bg-emerald-50/30 ring-2 ring-emerald-500/20" 
-                        : "border-slate-200 bg-white hover:border-slate-300"
-                    )}>
-                      <div className="flex-1 flex items-center gap-2 px-2">
-                        <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-400 shrink-0 uppercase">
-                          {String.fromCharCode(65 + oIndex)}
-                        </div>
-                        <Input 
-                          value={opt}
-                          onChange={(e) => handleOptionChange(qIndex, oIndex, e.target.value)}
-                          placeholder={`Option ${String.fromCharCode(65 + oIndex)}`}
-                          className="border-none bg-transparent focus-visible:ring-0 font-medium h-9 text-sm text-black shadow-none"
-                        />
-                      </div>
-                      
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleUpdateQuestion(qIndex, "answer", opt)}
-                        className={cn(
-                          "h-8 rounded-lg text-[10px] font-bold uppercase tracking-wider px-3 mr-1",
-                          q.answer === opt && opt !== ""
-                            ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                            : "text-slate-400 hover:bg-slate-100"
-                        )}
-                        disabled={!opt.trim()}
-                      >
-                        {q.answer === opt && opt !== "" ? (
-                          <span className="flex items-center gap-1"><CheckCircle2 className="h-3 w-3" /> Correct</span>
-                        ) : "Mark Correct"}
-                      </Button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {(q.options as string[]).map((opt, oIndex) => (
+                  <div key={oIndex} className={cn(
+                      'group/opt flex flex-col gap-3 p-6 rounded-[32px] border-2 transition-all duration-300',
+                      q.answer === opt && opt !== '' ? 'border-green-500 bg-green-50/30 ring-8 ring-green-500/5' : 'border-gray-50 bg-gray-50/30 hover:border-gray-100'
+                  )}>
+                    <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black text-gray-300 uppercase tracking-widest">
+                            Option {String.fromCharCode(65 + oIndex)}
+                        </span>
+                        <button 
+                            onClick={() => handleUpdateQuestion(qIndex, 'answer', opt)}
+                            className={cn(
+                                'px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all',
+                                q.answer === opt && opt !== '' ? 'bg-green-500 text-white shadow-lg shadow-green-200' : 'bg-white text-gray-400 border-2 border-gray-100 hover:text-green-600'
+                            )}
+                            disabled={!opt.trim()}
+                        >
+                            {q.answer === opt && opt !== '' ? 'Key Answer' : 'Mark Key'}
+                        </button>
                     </div>
+                    <Input 
+                      value={opt}
+                      onChange={(e) => handleOptionChange(qIndex, oIndex, e.target.value)}
+                      placeholder={`Insert text...`}
+                      className="border-0 bg-transparent focus-visible:ring-0 text-lg font-bold p-0 placeholder:text-gray-300 text-gray-900"
+                    />
                   </div>
                 ))}
               </div>
 
               {/* Explanation (Optional) */}
-              <div className="pt-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircle className="h-3.5 w-3.5 text-slate-400" />
-                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Explanation (Optional)</label>
+              <div className="pt-8 border-t-2 border-gray-50 flex gap-6">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center shrink-0">
+                  <AlertCircle className="h-6 w-6 text-amber-500" />
                 </div>
-                <Input 
-                  value={q.explanation || ""}
-                  onChange={(e) => handleUpdateQuestion(qIndex, "explanation", e.target.value)}
-                  placeholder="Explain why this answer is correct..."
-                  className="bg-transparent border-t-0 border-x-0 border-b border-slate-100 rounded-none px-0 text-sm italic focus-visible:ring-0 focus-visible:border-purple-400 h-9 text-slate-600 shadow-none"
-                />
+                <div className="flex-1 space-y-2">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-gray-400 px-1">Intellectual Insight (Optional)</label>
+                  <Input 
+                    value={q.explanation || ''}
+                    onChange={(e) => handleUpdateQuestion(qIndex, 'explanation', e.target.value)}
+                    placeholder="Provide context for the student..."
+                    className="bg-transparent border-0 border-b-2 border-gray-100 rounded-none px-0 text-sm font-bold italic focus-visible:ring-0 focus-visible:border-amber-400 h-12 text-gray-600 shadow-none transition-all"
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -283,21 +310,30 @@ function QuizEditContent() {
       </div>
 
       {/* ADD QUESTION BUTTON */}
-      <Button 
+      <button 
         onClick={handleAddQuestion}
-        variant="outline"
-        className="w-full h-16 border-dashed border-2 hover:border-purple-400 hover:bg-purple-50 rounded-2xl transition-all group bg-white"
+        className="w-full h-40 border-4 border-dashed border-gray-100 hover:border-amber-500/20 hover:bg-amber-500/5 rounded-[40px] transition-all group bg-white flex flex-col items-center justify-center gap-4"
       >
-        <Plus className="h-5 w-5 mr-2 text-slate-400 group-hover:text-purple-600 group-hover:scale-110 transition-all" />
-        <span className="font-bold text-slate-500 group-hover:text-purple-600">Add Another Question</span>
-      </Button>
+        <div className="w-16 h-16 rounded-[24px] bg-gray-50 flex items-center justify-center group-hover:bg-white group-hover:shadow-2xl transition-all border-2 border-gray-100 group-hover:border-amber-100">
+          <Plus className="h-8 w-8 text-gray-300 group-hover:text-amber-500" />
+        </div>
+        <span className="font-black text-[12px] text-gray-300 group-hover:text-amber-500 uppercase tracking-[0.4em]">Increment Unit Inventory</span>
+      </button>
     </div>
   );
 }
 
+/**
+ * Main wrapper with Suspense boundaries.
+ */
 export default function TeacherQuizEditPage() {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Spinner /></div>}>
+    <Suspense fallback={
+        <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+            <Loader2 className="h-12 w-12 animate-spin text-amber-500" />
+            <p className="text-gray-400 font-black uppercase tracking-[0.3em] text-[10px]">Synchronizing Context...</p>
+        </div>
+    }>
       <QuizEditContent />
     </Suspense>
   );

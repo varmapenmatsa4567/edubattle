@@ -86,10 +86,21 @@ export default function StudentDashboardLayout({
     return 'Good evening';
   };
 
+  const isQuizPage = location.startsWith('/student/assignments/') && location.split('/').length >= 4;
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-gray-50">
         <Loader2 className="h-8 w-8 animate-spin text-[#FF6B35]" />
+      </div>
+    );
+  }
+
+  // Quiz Attempt/Review pages provide their own navigation and headers
+  if (isQuizPage) {
+    return (
+      <div className="h-screen bg-gray-50 overflow-hidden">
+        {children}
       </div>
     );
   }
