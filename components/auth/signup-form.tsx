@@ -9,7 +9,7 @@ import { createUser } from "@/services/userService";
 import { supabase } from "@/lib/supabaseClient";
 import { Spinner } from "../ui/spinner";
 import { toast } from "sonner";
-import { ROLES } from "@/constants/roles";
+import { Role } from "@/constants/enums";
 import { createSchool } from "@/services/schoolService";
 
 export default function SignupForm() {
@@ -42,7 +42,7 @@ export default function SignupForm() {
       if (!data.user) throw new Error("User creation failed");
 
       // 3. Create user in DB
-      await createUser(data.user.id, data.user.email!, ROLES.SCHOOL);
+      await createUser(data.user.id, data.user.email!, Role.SCHOOL);
 
       // 4. Create school
       await createSchool(data.user.id, "Untitled");

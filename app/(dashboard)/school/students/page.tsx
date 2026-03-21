@@ -93,10 +93,10 @@ export default function StudentsPage() {
         const data = await getSchoolDetails(user.id);
         setSchool(data);
         
-        // Also fetch classes
-        const classesData = await getClasses(data?.id);
-        if (classesData) {
-          const grouped = classesData.reduce((acc: any[], row: any) => {
+        if (data?.id) {
+          const classesData = await getClasses(data.id);
+          if (classesData) {
+            const grouped = classesData.reduce((acc: any[], row: any) => {
             let cls = acc.find(c => c.name === row.class_name);
             if (!cls) {
               cls = { name: row.class_name, sections: [] };
@@ -109,12 +109,15 @@ export default function StudentsPage() {
           }, []);
           setClasses(grouped);
         }
+      }
 
+      if (data?.id) {
         // Fetch students
-        const studentsData = await getStudents(data?.id);
+        const studentsData = await getStudents(data.id);
         if (studentsData) {
           setStudents(studentsData);
         }
+      }
       }
     };
     fetchSchool();

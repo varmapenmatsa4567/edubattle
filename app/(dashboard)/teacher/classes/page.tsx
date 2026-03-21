@@ -45,7 +45,7 @@ export default function MyClassesPage() {
         const teacherData = await getTeacherDetails(user.id);
         if (teacherData) {
           setTeacher(teacherData);
-          const studentData = await getTeacherStudents(teacherData.id, teacherData.school_id);
+          const studentData = await getTeacherStudents(teacherData.id, teacherData.school_id || '');
           if (studentData) {
             setStudents(studentData);
           }
