@@ -60,6 +60,27 @@ export const addClassSubject = async (class_id: string, subject_id: string): Pro
 };
 
 /**
+ * Maps multiple subjects to a class in the class_subjects table.
+ */
+export const addBulkClassSubjects = async (class_id: string, subject_ids: string[]): Promise<boolean> => {
+  const inserts = subject_ids.map(subject_id => ({
+    class_id,
+    subject_id
+  }));
+
+  const { error } = await supabase
+    .from('class_subjects')
+    .insert(inserts);
+
+  if (error) {
+    console.error('Error bulk mapping subjects to class:', error.message);
+    return false;
+  }
+
+  return true;
+};
+
+/**
  * Fetches all subjects and their assigned teachers for a specific class.
  */
 export const getClassSubjects = async (class_id: string): Promise<ClassSubject[] | null> => {
