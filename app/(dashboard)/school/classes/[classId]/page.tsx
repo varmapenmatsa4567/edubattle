@@ -23,7 +23,7 @@ import { ROLES } from "@/constants/roles";
 import { getSchoolDetails } from "@/services/schoolService";
 import { getClassDetails } from "@/services/classService";
 import { getClassStudents } from "@/services/studentService";
-import { getSubjects, addClassSubject, getClassSubjects, assignTeacherToClassSubject } from "@/services/subjectService";
+import { getSubjects, addClassSubject, getClassSubjects, assignTeacherToClassSubject, addBulkClassSubjects } from "@/services/subjectService";
 import { getTeachers } from "@/services/teacherService";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -32,6 +32,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Spinner } from "@/components/ui/spinner";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -79,7 +80,7 @@ const SchoolClassPage = () => {
 
   // Dialog state
   const [isAddSubjectOpen, setIsAddSubjectOpen] = useState(false);
-  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [selectedSubjectIds, setSelectedSubjectIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const classIdStr = typeof classId === 'string' ? classId : '';
@@ -123,24 +124,18 @@ const SchoolClassPage = () => {
   }, [user, classIdStr]);
 
   const handleAddSubjectToClass = async () => {
-    if (!selectedSubjectId || !classIdStr) return;
-
-    // Check if already assigned
-    if (classSubjects.some(cs => cs.subject_id === selectedSubjectId)) {
-      toast.error("Subject already assigned to this class");
-      return;
-    }
+    if (selectedSubjectIds.length === 0 || !classIdStr) return;
 
     setIsSubmitting(true);
     try {
-      const result = await addClassSubject(classIdStr, selectedSubjectId);
+      const result = await addBulkClassSubjects(classIdStr, selectedSubjectIds);
       if (result) {
-        toast.success("Subject added to class successfully!");
+        toast.success(`${selectedSubjectIds.length} subjects added to class successfully!`);
         setIsAddSubjectOpen(false);
-        setSelectedSubjectId("");
+        setSelectedSubjectIds([]);
         fetchData();
       } else {
-        toast.error("Failed to add subject");
+        toast.error("Failed to add subjects");
       }
     } catch (error) {
       toast.error("An error occurred");
@@ -337,29 +332,51 @@ const SchoolClassPage = () => {
                     Select a subject from the school's curriculum to add to this class.
                   </DialogDescription>
                 </DialogHeader>
-                <div className="py-4">
-                  <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId}>
-                    <SelectTrigger className="h-11 rounded-lg">
-                      <SelectValue placeholder="Select a subject" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {schoolSubjects.map((sub) => (
-                        <SelectItem key={sub.id} value={sub.id}>
-                          {sub.subject_name}
-                        </SelectItem>
+                <div className="py-4 space-y-4">
+                  <p className="text-sm font-semibold text-muted-foreground mb-2">Available Subjects</p>
+                  <div className="max-h-[300px] overflow-y-auto pr-2 space-y-3 custom-scrollbar">
+                    {schoolSubjects
+                      .filter(sub => !classSubjects.some(cs => cs.subject_id === sub.id))
+                      .map((sub) => (
+                        <div key={sub.id} className="flex items-center space-x-3 p-3 rounded-xl border border-muted/40 hover:bg-slate-50 transition-colors">
+                          <Checkbox 
+                            id={`subject-${sub.id}`} 
+                            checked={selectedSubjectIds.includes(sub.id)}
+                            onCheckedChange={(checked: boolean | "indeterminate") => {
+                              if (checked === true) {
+                                setSelectedSubjectIds([...selectedSubjectIds, sub.id]);
+                              } else {
+                                setSelectedSubjectIds(selectedSubjectIds.filter(id => id !== sub.id));
+                              }
+                            }}
+                          />
+                          <label 
+                            htmlFor={`subject-${sub.id}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex-1"
+                          >
+                            {sub.subject_name}
+                          </label>
+                        </div>
                       ))}
-                    </SelectContent>
-                  </Select>
+                    {schoolSubjects.filter(sub => !classSubjects.some(cs => cs.subject_id === sub.id)).length === 0 && (
+                      <p className="text-sm text-center py-8 text-muted-foreground italic">
+                        All school subjects are already assigned to this class.
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddSubjectOpen(false)}>Cancel</Button>
+                  <Button variant="outline" onClick={() => {
+                    setIsAddSubjectOpen(false);
+                    setSelectedSubjectIds([]);
+                  }}>Cancel</Button>
                   <Button 
                     onClick={handleAddSubjectToClass} 
                     className="bg-purple-600 hover:bg-purple-700 text-white"
-                    disabled={!selectedSubjectId || isSubmitting}
+                    disabled={selectedSubjectIds.length === 0 || isSubmitting}
                   >
                     {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Add to Class
+                    Add {selectedSubjectIds.length > 0 ? `(${selectedSubjectIds.length})` : ""} to Class
                   </Button>
                 </DialogFooter>
               </DialogContent>

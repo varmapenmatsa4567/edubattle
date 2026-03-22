@@ -248,15 +248,24 @@ export default function QuizAttemptScreen() {
           </div>
         </div>
         <div className="flex items-center gap-8">
-          {timeLeft !== null && (
-            <div className={cn(
-              'flex items-center gap-3 px-6 py-2.5 rounded-2xl text-sm font-black shadow-sm border transition-colors duration-300',
-              timeLeft < 60 ? 'bg-red-50 text-red-600 border-red-100' : 
-              timeLeft < 300 ? 'bg-orange-50 text-orange-600 border-orange-100' : 
-              'bg-green-50 text-green-600 border-green-100'
-            )}>
-              <Clock size={16} className={cn(timeLeft < 60 && 'animate-pulse')} />
-              <span>{formatTime(timeLeft)}</span>
+          {timeLeft !== null && initialSeconds !== null && (
+            <div className="relative flex items-center justify-center">
+              <TimerRing 
+                progress={timeLeft / initialSeconds} 
+                colorClass={
+                  timeLeft < 60 ? 'text-red-500' : 
+                  timeLeft < 300 ? 'text-orange-500' : 
+                  'text-green-500'
+                }
+              />
+              <div className={cn(
+                'flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-black transition-colors duration-300',
+                timeLeft < 60 ? 'text-red-600' : 
+                timeLeft < 300 ? 'text-orange-600' : 
+                'text-green-600'
+              )}>
+                <span>{formatTime(timeLeft)}</span>
+              </div>
             </div>
           )}
           <span className="text-xs font-black text-gray-400 bg-gray-50 px-4 py-2.5 rounded-xl border border-gray-100 uppercase tracking-widest">
@@ -457,5 +466,48 @@ function LegendItem({ color, label, isFlag }: { color: string, label: string, is
       </span> 
       <span>{label}</span>
     </div>
+  );
+}
+
+/**
+ * Circular progress ring for the timer.
+ */
+function TimerRing({ progress, colorClass }: { progress: number; colorClass: string }) {
+  const size = 44;
+  const strokeWidth = 3;
+  const center = size / 2;
+  const radius = center - strokeWidth;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - progress * circumference;
+
+  return (
+    <svg width={size} height={size} className="absolute rotate-[-90deg]">
+      {/* Background Track */}
+      <circle
+        cx={center}
+        cy={center}
+        r={radius}
+        fill="transparent"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        className="text-gray-100"
+      />
+      {/* Progress Ring */}
+      <circle
+        cx={center}
+        cy={center}
+        r={radius}
+        fill="transparent"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        style={{ 
+          strokeDashoffset: offset,
+          transition: 'stroke-dashoffset 1s linear, stroke 0.3s ease'
+        }}
+        strokeLinecap="round"
+        className={colorClass}
+      />
+    </svg>
   );
 }
